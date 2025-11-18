@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: sql2doc_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-legal_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-legal_collections_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-legal_collections_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./test_data:/docker-entrypoint-initdb.d:ro
+    networks:
+      - sql2doc_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-legal_admin}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Ollama (Local LLM for AI features)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: sql2doc_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - sql2doc_network
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Note: GPU optional, will work on CPU too
+
+  # Streamlit Application
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sql2doc_streamlit
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-legal_admin}:${POSTGRES_PASSWORD:-legal_collections_pass}@postgres:5432/${POSTGRES_DB:-legal_collections_db}
+      - OLLAMA_HOST=http://ollama:11434
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./:/app
+      - streamlit_cache:/root/.streamlit
+    networks:
+      - sql2doc_network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+    restart: unless-stopped
+    command: streamlit run app.py --server.port=8501 --server.address=0.0.0.0
+
+volumes:
+  postgres_data:
+    driver: local
+  ollama_data:
+    driver: local
+  streamlit_cache:
+    driver: local
+
+networks:
+  sql2doc_network:
+    driver: bridge

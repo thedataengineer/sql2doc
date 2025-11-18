@@ -1,148 +1,185 @@
-# Quick Start Guide
+# SQL2Doc Quick Start Guide
 
-## Get Started in 3 Minutes
-
-### 1. Setup (30 seconds)
-
-```bash
-# Already done! Environment is set up with:
-pyenv virtualenv 3.12.11 sql2doc-env
-pyenv local sql2doc-env
-pip install -r requirements.txt
-```
-
-### 2. Run the Application (10 seconds)
-
-```bash
-streamlit run app.py
-```
-
-The app will open at `http://localhost:8501`
-
-### 3. Connect to a Database (1 minute)
-
-**Option A: Quick Test with SQLite**
-```bash
-# Create a test database
-sqlite3 test.db "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT);"
-sqlite3 test.db "INSERT INTO users VALUES (1, 'John Doe', 'john@example.com');"
-```
-
-In the Streamlit UI sidebar:
-- Select "SQLite"
-- Enter: `test.db`
-- Click "Connect"
-
-**Option B: PostgreSQL**
-- Select "PostgreSQL"
-- Host: `localhost`
-- Port: `5432`
-- Username: `your_username`
-- Password: `your_password`
-- Database: `your_database`
-- Click "Connect"
-
-**Option C: MySQL**
-- Select "MySQL"
-- Host: `localhost`
-- Port: `3306`
-- Username: `your_username`
-- Password: `your_password`
-- Database: `your_database`
-- Click "Connect"
-
-### 4. Generate Your First Data Dictionary (1 minute)
-
-1. Go to "Data Dictionary" tab
-2. Check "Include row counts" (optional)
-3. Click "Generate Dictionary"
-4. Browse your tables and columns!
-
-### 5. Profile Your Data (1 minute)
-
-1. Switch to "Table Profiling" tab
-2. Select a table from dropdown
-3. Click "Run Profiling"
-4. View data quality metrics:
-   - NULL values
-   - Completeness score
-   - Duplicate detection
-   - Column statistics
-
-### 6. Export Your Documentation
-
-1. Go to "Export" tab
-2. Choose format:
-   - JSON for machine-readable
-   - Markdown for human-readable docs
-3. Click Download
-
-## That's It!
-
-You now have:
-- ✅ Complete database documentation
-- ✅ Data quality assessment
-- ✅ Exportable documentation
-
-## Common Use Cases
-
-### Use Case 1: New Team Member Onboarding
-```
-1. Connect to company database
-2. Generate data dictionary
-3. Export to Markdown
-4. Share with new team member
-```
-
-### Use Case 2: Data Quality Check
-```
-1. Connect to database
-2. Profile all important tables
-3. Review completeness scores
-4. Identify tables with high NULL rates
-5. Generate report for stakeholders
-```
-
-### Use Case 3: Database Migration Planning
-```
-1. Connect to source database
-2. Generate complete dictionary
-3. Export to JSON
-4. Use for migration planning
-5. Verify relationships and constraints
-```
-
-## Troubleshooting
-
-**Can't connect to database?**
-- Check database is running
-- Verify credentials
-- Check firewall/network access
-- Try connection string format from README
-
-**Slow performance?**
-- Uncheck "Include row counts"
-- Profile tables one at a time
-- Check database has indexes
-
-**Tests failing?**
-```bash
-pytest -v  # Run with verbose output
-```
-
-## Next Steps
-
-- Read [README.md](README.md) for detailed usage
-- Check [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) for architecture
-- Review [PROJECT_SUMMARY.md](PROJECT_SUMMARY.md) for overview
-
-## Need Help?
-
-Check the documentation:
-- Connection examples in README.md
-- Query examples in Custom Query tab
-- Troubleshooting section in README.md
+Get sql2doc running on Azure VM in 15 minutes.
 
 ---
 
-**Enjoy documenting your databases!** 📊🎉
+## Prerequisites
+
+- Azure account
+- SSH key pair
+- Git repository (GitHub/GitLab/Azure DevOps)
+
+---
+
+## 1. Create Azure VM (5 minutes)
+
+### Via Azure Portal:
+1. Go to https://portal.azure.com
+2. Create VM:
+   - **Image:** Ubuntu 22.04 LTS
+   - **Size:** Standard_B2s (minimum)
+   - **Authentication:** SSH key
+   - **Ports:** 22, 80, 443, 8501
+3. Note the Public IP address
+
+---
+
+## 2. Initial Setup (5 minutes)
+
+```bash
+# SSH into VM
+ssh azureuser@<YOUR_VM_IP>
+
+# Run setup script
+curl -fsSL https://raw.githubusercontent.com/yourusername/sql2doc/main/deploy/vm_setup.sh | bash
+
+# Logout and login (for Docker group)
+exit
+ssh azureuser@<YOUR_VM_IP>
+```
+
+---
+
+## 3. Deploy Application (5 minutes)
+
+```bash
+# Clone repository
+cd /opt
+sudo chown -R $USER:$USER sql2doc
+cd sql2doc
+git clone https://github.com/yourusername/sql2doc.git .
+
+# Configure environment
+cp .env.example .env
+nano .env  # Edit if needed
+
+# Deploy
+docker-compose up -d
+
+# Wait for services
+sleep 30
+
+# Check status
+docker-compose ps
+```
+
+---
+
+## 4. Access Application
+
+Open browser: **http://YOUR_VM_IP:8501**
+
+### Connect to Test Database:
+```
+Host: localhost
+Port: 5432
+Database: legal_collections_db
+Username: legal_admin
+Password: legal_collections_pass
+
+Connection String:
+postgresql://legal_admin:legal_collections_pass@localhost:5432/legal_collections_db
+```
+
+---
+
+## Quick Commands
+
+```bash
+# View logs
+docker-compose logs -f
+
+# Restart services
+docker-compose restart
+
+# Stop services
+docker-compose down
+
+# Start services
+docker-compose up -d
+
+# Pull latest code and redeploy
+git pull && docker-compose down && docker-compose up -d --build
+```
+
+---
+
+## Setup Nginx (Optional)
+
+```bash
+# Copy Nginx config
+sudo cp deploy/nginx/sql2doc.conf /etc/nginx/sites-available/sql2doc
+sudo ln -s /etc/nginx/sites-available/sql2doc /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
+
+# Access via: http://YOUR_VM_IP (port 80)
+```
+
+---
+
+## Setup SSL (Optional)
+
+```bash
+# Install certbot
+sudo apt install -y certbot python3-certbot-nginx
+
+# Get certificate
+sudo certbot --nginx -d your-domain.com
+
+# Auto-renewal is configured
+# Access via: https://your-domain.com
+```
+
+---
+
+## Troubleshooting
+
+**Services not starting:**
+```bash
+docker-compose logs streamlit
+docker-compose logs postgres
+```
+
+**Cannot access application:**
+```bash
+# Check if running
+docker-compose ps
+
+# Check firewall
+sudo ufw status
+
+# Check port
+sudo netstat -tlnp | grep 8501
+```
+
+**Database connection issues:**
+```bash
+# Check PostgreSQL
+docker exec -it sql2doc_postgres psql -U legal_admin -d legal_collections_db
+```
+
+---
+
+## Cost Optimization
+
+- Enable auto-shutdown for dev/test VMs
+- Use B-series VMs for cost efficiency
+- Stop VM when not in use: `az vm deallocate`
+
+---
+
+## Next Steps
+
+- Configure custom domain
+- Setup monitoring
+- Implement backup strategy
+- Review security settings
+- Test all features
+
+---
+
+**That's it! Your SQL2Doc instance is ready.**
+
+For detailed documentation: See AZURE_DEPLOYMENT.md
