@@ -79,10 +79,10 @@ if 'current_table' not in st.session_state:
     st.session_state.current_table = None
 
 
-def connect_to_database(connection_string: str) -> bool:
+def connect_to_database(connection_string: str, **kwargs) -> bool:
     """Connect to database using connection string."""
     try:
-        st.session_state.connector.connect(connection_string)
+        st.session_state.connector.connect(connection_string, **kwargs)
         st.session_state.connected = True
         return True
     except Exception as e:
@@ -128,28 +128,69 @@ def main():
 
         db_type_select = st.selectbox(
             "Database Type",
-            ["PostgreSQL", "MySQL", "SQLite"],
+            ["PostgreSQL", "MySQL", "SQLite", "SQL Server", "MongoDB", "Neo4j"],
             help="Select your database type"
         )
 
         if db_type_select == "SQLite":
             db_path = st.text_input("Database File Path", value="database.db")
             connection_string = f"sqlite:///{db_path}"
-        else:
+
+        elif db_type_select == "MongoDB":
             col1, col2 = st.columns(2)
             with col1:
                 host = st.text_input("Host", value="localhost")
-                username = st.text_input("Username", value="postgres")
+                username = st.text_input("Username", value="")
             with col2:
-                port = st.text_input("Port", value="5432" if db_type_select == "PostgreSQL" else "3306")
+                port = st.text_input("Port", value="27017")
+                password = st.text_input("Password", type="password")
+
+            database = st.text_input("Database Name", value="admin")
+
+            if username and password:
+                connection_string = f"mongodb://{username}:{password}@{host}:{port}/{database}"
+            else:
+                connection_string = f"mongodb://{host}:{port}/{database}"
+
+        elif db_type_select == "Neo4j":
+            col1, col2 = st.columns(2)
+            with col1:
+                host = st.text_input("Host", value="localhost")
+                username = st.text_input("Username", value="neo4j")
+            with col2:
+                port = st.text_input("Port", value="7687")
+                password = st.text_input("Password", type="password")
+
+            connection_string = f"neo4j://{host}:{port}"
+            # Store auth separately for Neo4j
+            if 'neo4j_auth' not in st.session_state:
+                st.session_state.neo4j_auth = (username, password)
+            st.session_state.neo4j_auth = (username, password)
+
+        else:
+            # SQL databases: PostgreSQL, MySQL, SQL Server
+            col1, col2 = st.columns(2)
+            with col1:
+                host = st.text_input("Host", value="localhost")
+                username = st.text_input("Username", value="postgres" if db_type_select == "PostgreSQL" else "sa")
+            with col2:
+                default_port = {
+                    "PostgreSQL": "5432",
+                    "MySQL": "3306",
+                    "SQL Server": "1433"
+                }.get(db_type_select, "5432")
+                port = st.text_input("Port", value=default_port)
                 password = st.text_input("Password", type="password")
 
             database = st.text_input("Database Name")
 
             if db_type_select == "PostgreSQL":
                 connection_string = f"postgresql://{username}:{password}@{host}:{port}/{database}"
-            else:  # MySQL
+            elif db_type_select == "MySQL":
                 connection_string = f"mysql+pymysql://{username}:{password}@{host}:{port}/{database}"
+            elif db_type_select == "SQL Server":
+                # SQL Server connection string with pyodbc
+                connection_string = f"mssql+pyodbc://{username}:{password}@{host}:{port}/{database}?driver=ODBC+Driver+17+for+SQL+Server"
 
         # Advanced connection string
         with st.expander("Advanced: Custom Connection String"):
@@ -163,9 +204,16 @@ def main():
         if st.button("Connect", type="primary", disabled=st.session_state.connected):
             if connection_string:
                 with st.spinner("Connecting to database..."):
-                    if connect_to_database(connection_string):
-                        st.success("Connected successfully!")
-                        st.rerun()
+                    # Handle Neo4j special case with authentication
+                    if db_type_select == "Neo4j":
+                        auth = st.session_state.get('neo4j_auth', ('neo4j', 'password'))
+                        if connect_to_database(connection_string, username=auth[0], password=auth[1]):
+                            st.success("Connected successfully!")
+                            st.rerun()
+                    else:
+                        if connect_to_database(connection_string):
+                            st.success("Connected successfully!")
+                            st.rerun()
             else:
                 st.error("Please provide connection details")
 
@@ -174,6 +222,9 @@ def main():
         st.code("postgresql://user:pass@localhost:5432/db", language="text")
         st.code("mysql+pymysql://user:pass@localhost:3306/db", language="text")
         st.code("sqlite:///path/to/database.db", language="text")
+        st.code("mssql+pyodbc://sa:pass@localhost:1433/db?driver=ODBC+Driver+17+for+SQL+Server", language="text")
+        st.code("mongodb://user:pass@localhost:27017/dbname", language="text")
+        st.code("neo4j://localhost:7687 (auth via username/password fields)", language="text")
 
     # Main content
     if not st.session_state.connected:

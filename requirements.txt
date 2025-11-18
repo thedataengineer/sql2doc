@@ -3,8 +3,17 @@ streamlit==1.29.0
 pandas==2.1.4
 pytest==7.4.3
 python-dotenv==1.0.0
-psycopg2-binary==2.9.9
-pymysql==1.1.0
+
+# SQL Database Drivers
+psycopg2-binary==2.9.9  # PostgreSQL
+pymysql==1.1.0          # MySQL
+pyodbc>=5.0.0           # SQL Server
 cryptography==41.0.7
-ollama>=0.1.0
-sqlparse>=0.4.0
+
+# NoSQL Database Drivers
+pymongo>=4.6.0          # MongoDB
+neo4j>=5.15.0           # Neo4j
+
+# AI/LLM Support
+ollama>=0.1.0           # Local LLM inference
+sqlparse>=0.4.0         # SQL parsing

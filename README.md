@@ -1,11 +1,11 @@
 # SQL Data Dictionary Generator with AI
 
-A comprehensive tool for generating data dictionaries and running profiling scripts for SQL databases with an intuitive Streamlit UI. Now with AI-powered natural language queries and automated documentation!
+A comprehensive tool for generating data dictionaries and running profiling scripts for databases with an intuitive Streamlit UI. Now with AI-powered natural language queries and automated documentation!
 
 ## Features
 
 ### Core Features
-- **Multi-Database Support**: PostgreSQL, MySQL, SQLite
+- **Multi-Database Support**: PostgreSQL, MySQL, SQLite, SQL Server, MongoDB, Neo4j
 - **Comprehensive Data Dictionary Generation**:
   - Table and column information
   - Data types and constraints
