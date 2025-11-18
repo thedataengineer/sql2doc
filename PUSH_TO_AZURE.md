@@ -110,7 +110,7 @@ Once your code is in a Git repository:
 ssh azureuser@<YOUR_VM_IP>
 
 # 2. Run the setup script (one-time)
-curl -fsSL https://raw.githubusercontent.com/YOUR_USERNAME/sql2doc/main/deploy/vm_setup.sh | bash
+curl -fsSL https://raw.githubusercontent.com/thedataengineer/sql2doc/main/deploy/vm_setup.sh | bash
 
 # 3. Logout and login
 exit
@@ -120,7 +120,7 @@ ssh azureuser@<YOUR_VM_IP>
 sudo mkdir -p /opt/sql2doc
 sudo chown -R $USER:$USER /opt/sql2doc
 cd /opt/sql2doc
-git clone https://github.com/YOUR_USERNAME/sql2doc.git .
+git clone https://github.com/thedataengineer/sql2doc.git .
 
 # 5. Configure environment
 cp .env.example .env

@@ -32,7 +32,7 @@ Get sql2doc running on Azure VM in 15 minutes.
 ssh azureuser@<YOUR_VM_IP>
 
 # Run setup script
-curl -fsSL https://raw.githubusercontent.com/yourusername/sql2doc/main/deploy/vm_setup.sh | bash
+curl -fsSL https://raw.githubusercontent.com/thedataengineer/sql2doc/main/deploy/vm_setup.sh | bash
 
 # Logout and login (for Docker group)
 exit
@@ -48,7 +48,7 @@ ssh azureuser@<YOUR_VM_IP>
 cd /opt
 sudo chown -R $USER:$USER sql2doc
 cd sql2doc
-git clone https://github.com/yourusername/sql2doc.git .
+git clone https://github.com/thedataengineer/sql2doc.git .
 
 # Configure environment
 cp .env.example .env

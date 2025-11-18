@@ -143,7 +143,7 @@ docker-compose --version
 ```bash
 # Clone your repository
 cd ~
-git clone https://github.com/yourusername/sql2doc.git
+git clone https://github.com/thedataengineer/sql2doc.git
 cd sql2doc
 ```
 
@@ -170,7 +170,7 @@ git push -u azure main
 
 ```bash
 cd ~
-git clone https://github.com/yourusername/sql2doc.git
+git clone https://github.com/thedataengineer/sql2doc.git
 cd sql2doc
 ```
 
