@@ -7,7 +7,7 @@ python-dotenv==1.0.0
 # SQL Database Drivers
 psycopg2-binary==2.9.9  # PostgreSQL
 pymysql==1.1.0          # MySQL
-pyodbc>=5.0.0           # SQL Server
+pyodbc>=5.0.0           # SQL Server (optional, requires FreeTDS on macOS)
 cryptography==41.0.7
 
 # NoSQL Database Drivers
