@@ -8,6 +8,7 @@ import json
 import pandas as pd
 from datetime import datetime
 import sys
+import os
 from pathlib import Path
 
 # Add src directory to path
@@ -460,7 +461,8 @@ def main():
 
         # Check Ollama availability
         engine = st.session_state.connector.get_engine()
-        nl_generator = NaturalLanguageQueryGenerator(engine)
+        default_ollama_host = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
+        nl_generator = NaturalLanguageQueryGenerator(engine, ollama_host=default_ollama_host)
 
         if not nl_generator.is_available():
             st.warning("⚠️ Ollama is not available. Please ensure Ollama is running locally.")
@@ -481,7 +483,7 @@ def main():
                 col1, col2 = st.columns(2)
                 with col1:
                     ollama_model = st.text_input("Ollama Model", value="llama3.2", help="Model name from Ollama")
-                    ollama_host = st.text_input("Ollama Host", value="http://localhost:11434")
+                    ollama_host = st.text_input("Ollama Host", value=default_ollama_host)
                 with col2:
                     temperature = st.slider("Temperature", 0.0, 1.0, 0.1, 0.1, help="Lower = more deterministic")
                     result_limit = st.number_input("Result Limit", 10, 1000, 100, help="Max rows to return")
