@@ -35,6 +35,33 @@ A comprehensive tool for generating data dictionaries and running profiling scri
   - Human-readable purpose and usage notes
 - **On-Premises AI**: No cloud dependencies, all processing happens locally
 
+## Testing
+
+### E2E Tests for AI Features
+Comprehensive test suite for AI documentation generation:
+- **33 Mocked tests**: Fast validation without external dependencies (~1 second)
+- **17 Real Ollama E2E tests**: Full integration testing with actual Ollama service (~87 seconds)
+- **100% passing**: All tests validated
+
+```bash
+# Run mocked tests (fast)
+pytest tests/test_ai_documentation.py -v
+
+# Run real Ollama E2E tests
+pytest tests/test_ai_documentation_e2e.py -v
+
+# Run all tests
+pytest tests/ -v
+
+# Health check on Azure VM
+./test_deployment_health.sh
+
+# Run E2E tests on Azure VM
+./run_e2e_tests_azure.sh
+```
+
+See [E2E_TESTS_SUMMARY.md](E2E_TESTS_SUMMARY.md) and [AZURE_E2E_TESTING.md](AZURE_E2E_TESTING.md) for details.
+
 ## Installation
 
 ### Prerequisites

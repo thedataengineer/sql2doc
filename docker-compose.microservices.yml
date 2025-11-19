@@ -1,0 +1,112 @@
+version: '3.8'
+
+# SQL2Doc Microservices Architecture
+# Separates services for cloud deployment
+
+services:
+  # Ollama Service - LLM Inference (VM1)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: sql2doc-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+    networks:
+      - sql2doc-network
+    restart: unless-stopped
+
+  # PostgreSQL Database (Could be Azure Database for PostgreSQL)
+  postgres:
+    image: postgres:15-alpine
+    container_name: sql2doc-postgres
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-healthcare_ods_db}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./test_data:/docker-entrypoint-initdb.d
+    networks:
+      - sql2doc-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # GraphRAG Service - Knowledge Graph API (VM2)
+  graphrag:
+    build:
+      context: ./graphrag-service
+      dockerfile: Dockerfile
+    container_name: sql2doc-graphrag
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_HOST=${OLLAMA_HOST:-http://ollama:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.2}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/healthcare_ods_db}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      ollama:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+      - sql2doc-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+
+  # UI Service - Streamlit Frontend (VM3)
+  ui:
+    build:
+      context: ./ui-service
+      dockerfile: Dockerfile
+    container_name: sql2doc-ui
+    ports:
+      - "8501:8501"
+    environment:
+      - GRAPHRAG_API_URL=${GRAPHRAG_API_URL:-http://graphrag:8000}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/healthcare_ods_db}
+    depends_on:
+      graphrag:
+        condition: service_healthy
+    networks:
+      - sql2doc-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+
+networks:
+  sql2doc-network:
+    driver: bridge
+
+volumes:
+  ollama_data:
+  postgres_data:
