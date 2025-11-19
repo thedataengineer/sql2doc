@@ -588,7 +588,8 @@ def main():
         st.markdown('<p class="sub-header">AI-Enhanced Schema Documentation</p>', unsafe_allow_html=True)
 
         engine = st.session_state.connector.get_engine()
-        explainer = SchemaExplainer(engine)
+        default_ollama_host = os.getenv('OLLAMA_HOST', 'http://localhost:11434')
+        explainer = SchemaExplainer(engine, ollama_host=default_ollama_host)
 
         if not explainer.is_available():
             st.warning("⚠️ Ollama is not available. Please ensure Ollama is running locally.")

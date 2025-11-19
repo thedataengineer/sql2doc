@@ -248,12 +248,141 @@ Provide a brief explanation (2-3 sentences) of how this table relates to other t
             logger.error(f"Error explaining relationships for {table_name}: {str(e)}")
             return "Error generating relationship explanation"
 
-    def enhance_dictionary(self, dictionary: Dict[str, Any]) -> Dict[str, Any]:
+    def explain_table_with_context(
+        self,
+        table_name: str,
+        columns: List[Dict[str, Any]],
+        row_count: int,
+        primary_keys: List[str],
+        foreign_keys: List[Dict[str, Any]],
+        indexes: List[Dict[str, Any]]
+    ) -> Dict[str, str]:
+        """
+        Generate AI-powered explanation for a database table using rich context.
+        Uses row counts, constraints, relationships, and indexes for better understanding.
+
+        Args:
+            table_name: Name of the table
+            columns: List of column dictionaries with name, type, nullable info
+            row_count: Number of rows in the table
+            primary_keys: List of primary key columns
+            foreign_keys: List of foreign key relationships
+            indexes: List of indexes on the table
+
+        Returns:
+            dict: Contains 'table_description', 'purpose', and 'usage_notes'
+        """
+        if not self.ollama_client:
+            return {
+                'table_description': f'Table: {table_name}',
+                'purpose': 'Data storage',
+                'usage_notes': 'Ollama not available'
+            }
+
+        try:
+            # Build rich context prompt
+            column_list = '\n'.join([
+                f"  - {col['name']} ({col['type']}){'  [PK]' if col['name'] in primary_keys else ''}{'  [NULL]' if col.get('nullable') else ''}"
+                for col in columns
+            ])
+
+            # Build foreign key context
+            fk_context = ""
+            if foreign_keys:
+                fk_list = []
+                for fk in foreign_keys:
+                    cols = ', '.join(fk.get('constrained_columns', []))
+                    ref_table = fk.get('referred_table', 'unknown')
+                    ref_cols = ', '.join(fk.get('referred_columns', []))
+                    fk_list.append(f"  - {cols} -> {ref_table}({ref_cols})")
+                fk_context = "\n\nForeign Keys:\n" + '\n'.join(fk_list)
+
+            # Build index context
+            index_context = ""
+            if indexes:
+                index_list = []
+                for idx in indexes:
+                    idx_cols = ', '.join(idx.get('columns', []))
+                    unique = ' [UNIQUE]' if idx.get('unique') else ''
+                    index_list.append(f"  - {idx.get('name', 'unnamed')} on ({idx_cols}){unique}")
+                index_context = "\n\nIndexes:\n" + '\n'.join(index_list)
+
+            prompt = f"""Analyze this database table and provide comprehensive documentation.
+
+Table: {table_name}
+Row Count: {row_count:,}
+Primary Keys: {', '.join(primary_keys) if primary_keys else 'None'}
+
+Columns:
+{column_list}{fk_context}{index_context}
+
+Based on the table name, columns, relationships, and constraints, provide:
+1. A clear description of what this table stores
+2. Its primary purpose in the database
+3. Important usage notes (data patterns, business rules, performance considerations)
+
+Respond in JSON format:
+{{
+  "table_description": "Detailed description of what this table stores and represents",
+  "purpose": "Primary business purpose and use cases",
+  "usage_notes": "Important notes about constraints, data quality, performance, or business rules"
+}}"""
+
+            response = self.ollama_client.chat(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a database documentation expert. Provide clear, technical documentation based on schema analysis."
+                    },
+                    {"role": "user", "content": prompt}
+                ],
+                options={
+                    "temperature": self.temperature,
+                    "num_ctx": 8192  # Larger context for richer input
+                }
+            )
+
+            content = response['message']['content']
+
+            # Parse JSON response
+            try:
+                if '```json' in content:
+                    content = content.split('```json')[1].split('```')[0].strip()
+                elif '```' in content:
+                    content = content.split('```')[1].split('```')[0].strip()
+
+                result = json.loads(content)
+                return {
+                    'table_description': result.get('table_description', f'Table: {table_name} ({row_count:,} rows)'),
+                    'purpose': result.get('purpose', 'Data storage and management'),
+                    'usage_notes': result.get('usage_notes', 'No additional notes available')
+                }
+
+            except json.JSONDecodeError:
+                logger.warning(f"Failed to parse JSON for table {table_name}, using fallback")
+                return {
+                    'table_description': content.strip()[:300],
+                    'purpose': 'See description',
+                    'usage_notes': 'N/A'
+                }
+
+        except Exception as e:
+            logger.error(f"Error explaining table {table_name} with context: {str(e)}")
+            return {
+                'table_description': f'Table: {table_name} ({row_count:,} rows)',
+                'purpose': f'Error generating explanation: {str(e)}',
+                'usage_notes': 'N/A'
+            }
+
+    def enhance_dictionary(self, dictionary: Dict[str, Any], include_column_descriptions: bool = True) -> Dict[str, Any]:
         """
         Enhance an existing data dictionary with AI-generated explanations.
+        Uses profiling data, constraints, relationships, and row counts for rich context.
 
         Args:
             dictionary: Data dictionary from DictionaryBuilder
+            include_column_descriptions: Generate AI descriptions for each column (slower)
 
         Returns:
             dict: Enhanced dictionary with AI explanations
@@ -269,11 +398,26 @@ Provide a brief explanation (2-3 sentences) of how this table relates to other t
 
         logger.info("Enhancing dictionary with AI explanations...")
 
+        # First, generate database-level summary
+        try:
+            db_summary = self.generate_database_summary(enhanced)
+            enhanced['ai_database_summary'] = db_summary
+        except Exception as e:
+            logger.error(f"Error generating database summary: {str(e)}")
+
         for table_name, table_info in enhanced['tables'].items():
             try:
-                # Generate table explanation
+                # Build rich context for table explanation
                 columns = table_info.get('columns', [])
-                explanation = self.explain_table(table_name, columns)
+                row_count = table_info.get('row_count', 0)
+                primary_keys = table_info.get('primary_keys', [])
+                foreign_keys = table_info.get('foreign_keys', [])
+                indexes = table_info.get('indexes', [])
+
+                # Generate enhanced table explanation with context
+                explanation = self.explain_table_with_context(
+                    table_name, columns, row_count, primary_keys, foreign_keys, indexes
+                )
 
                 # Add to table info
                 table_info['ai_description'] = explanation['table_description']
@@ -281,12 +425,26 @@ Provide a brief explanation (2-3 sentences) of how this table relates to other t
                 table_info['ai_usage_notes'] = explanation['usage_notes']
 
                 # Generate relationship explanation if foreign keys exist
-                if table_info.get('foreign_keys'):
+                if foreign_keys:
                     rel_explanation = self.generate_relationship_explanation(
                         table_name,
-                        table_info['foreign_keys']
+                        foreign_keys
                     )
                     table_info['ai_relationships'] = rel_explanation
+
+                # Generate AI descriptions for each column if requested
+                if include_column_descriptions:
+                    for column in table_info.get('columns', []):
+                        try:
+                            col_desc = self.explain_column(
+                                table_name,
+                                column.get('name', ''),
+                                column.get('type', '')
+                            )
+                            column['ai_description'] = col_desc
+                        except Exception as e:
+                            logger.error(f"Error explaining column {column.get('name')}: {str(e)}")
+                            continue
 
                 logger.info(f"Enhanced documentation for table: {table_name}")
 
